@@ -15,11 +15,11 @@ fn main() {
     let input_file = reversed_args.pop().expect("input file");
     let content = fs::read_to_string(input_file).unwrap();
 
-    let input_data: Vec<u64> = content
+    let input_data: Vec<Vec<u64>> = content
         .trim_end()
-        .split('\n')
-        .map(|x| x.parse().unwrap())
-        .collect();
+        .split("\n\n")
+        .map(|x| x.trim_end().split('\n').map(|x| x.parse().unwrap()).collect_vec())
+        .collect_vec();
 
     match part {
         "1" => {
@@ -34,10 +34,10 @@ fn main() {
     }
 }
 
-fn solve_part1(_data: &[u64]) -> usize {
-    todo!()
+fn solve_part1(data: &[Vec<u64>]) -> u64 {
+    data.iter().map(|x| x.iter().sum()).max().unwrap()
 }
 
-fn solve_part2(_data: &[u64]) -> usize {
-    todo!()
+fn solve_part2(data: &[Vec<u64>]) -> u64 {
+    data.iter().map(|x| x.iter().sum::<u64>()).sorted_unstable().rev().take(3).sum()
 }
