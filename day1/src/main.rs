@@ -18,7 +18,12 @@ fn main() {
     let input_data: Vec<Vec<u64>> = content
         .trim_end()
         .split("\n\n")
-        .map(|x| x.trim_end().split('\n').map(|x| x.parse().unwrap()).collect_vec())
+        .map(|x| {
+            x.trim_end()
+                .split('\n')
+                .map(|x| x.parse().unwrap())
+                .collect_vec()
+        })
         .collect_vec();
 
     match part {
@@ -39,5 +44,10 @@ fn solve_part1(data: &[Vec<u64>]) -> u64 {
 }
 
 fn solve_part2(data: &[Vec<u64>]) -> u64 {
-    data.iter().map(|x| x.iter().sum::<u64>()).sorted_unstable().rev().take(3).sum()
+    data.iter()
+        .map(|x| x.iter().sum::<u64>())
+        .sorted_unstable()
+        .rev()
+        .take(3)
+        .sum()
 }
