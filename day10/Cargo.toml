@@ -8,3 +8,5 @@ edition = "2021"
 [dependencies]
 itertools = "0.10.1"
 kth = "0.1.0"
+nom = "7.1.1"
+nom-supreme = "0.8.0"
