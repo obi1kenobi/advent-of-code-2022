@@ -26,7 +26,7 @@ fn main() {
     let command = reversed_args.pop().expect("command");
     match command {
         "in" => {
-            let input_file_url = URL.join(&format!("day/{}/input", day)).unwrap();
+            let input_file_url = URL.join(&format!("day/{day}/input")).unwrap();
             let output_location = reversed_args.pop().expect("output file");
 
             let client = reqwest::blocking::Client::builder()
@@ -42,7 +42,7 @@ fn main() {
             result.copy_to(&mut output).unwrap();
         }
         "example" => {
-            let input_file_url = URL.join(&format!("day/{}", day)).unwrap();
+            let input_file_url = URL.join(&format!("day/{day}")).unwrap();
             let output_location = reversed_args.pop().expect("example file");
             let code_box_index = reversed_args.pop()
                 .map(str::parse)
