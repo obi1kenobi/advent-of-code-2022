@@ -70,11 +70,11 @@ fn main() {
     match part {
         "1" => {
             let result = solve_part1(stacks, instructions);
-            println!("{}", result);
+            println!("{result}");
         }
         "2" => {
             let result = solve_part2(stacks, instructions);
-            println!("{}", result);
+            println!("{result}");
         }
         _ => unreachable!("{}", part),
     }

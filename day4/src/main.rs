@@ -32,11 +32,11 @@ fn main() {
     match part {
         "1" => {
             let result = solve_part1(&input_data);
-            println!("{}", result);
+            println!("{result}");
         }
         "2" => {
             let result = solve_part2(&input_data);
-            println!("{}", result);
+            println!("{result}");
         }
         _ => unreachable!("{}", part),
     }
