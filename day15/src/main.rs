@@ -1,79 +1,11 @@
-use std::{
-    collections::BTreeSet,
-    env, fs,
-    ops::{Add, Neg, Sub},
-};
+use std::{collections::BTreeSet, env, fs};
 
 #[allow(unused_imports)]
 use itertools::Itertools;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-#[repr(u8)]
-enum Direction {
-    Up = 0,
-    Down = 1,
-    Left = 2,
-    Right = 3,
-}
+use geometry::Vector2D;
 
-impl Direction {
-    const ALL_UNIT_VECTORS: [(i64, i64); 4] = [(-1, 0), (1, 0), (0, -1), (0, 1)];
-
-    fn unit_vector(&self) -> Vector2D {
-        // SAFETY: Because `Self` is marked `repr(u8)`, its layout is a `repr(C)` `union`
-        // between `repr(C)` structs, each of which has the `u8` discriminant as its first
-        // field, so we can read the discriminant without offsetting the pointer.
-        let idx = unsafe { *<*const _>::from(self).cast::<u8>() } as usize;
-        let (x, y) = Direction::ALL_UNIT_VECTORS[idx];
-        Vector2D::new(x, y)
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-struct Vector2D {
-    x: i64,
-    y: i64,
-}
-
-impl Vector2D {
-    fn new(x: i64, y: i64) -> Self {
-        Self { x, y }
-    }
-
-    fn zero() -> Self {
-        Self { x: 0, y: 0 }
-    }
-}
-
-impl Add<Vector2D> for Vector2D {
-    type Output = Vector2D;
-
-    fn add(self, rhs: Vector2D) -> Self::Output {
-        Vector2D {
-            x: self.x + rhs.x,
-            y: self.y + rhs.y,
-        }
-    }
-}
-
-impl Neg for Vector2D {
-    type Output = Vector2D;
-
-    fn neg(self) -> Self::Output {
-        Vector2D {
-            x: -self.x,
-            y: -self.y,
-        }
-    }
-}
-
-impl Sub<Vector2D> for Vector2D {
-    type Output = Vector2D;
-
-    fn sub(self, rhs: Vector2D) -> Self::Output {
-        self + (-rhs)
-    }
-}
+mod geometry;
 
 fn parse_point(point: &str) -> Vector2D {
     point
@@ -89,8 +21,7 @@ fn parse_point(point: &str) -> Vector2D {
 }
 
 fn parse_line(line: &str) -> (Vector2D, Vector2D) {
-    line
-        .strip_prefix("Sensor at ")
+    line.strip_prefix("Sensor at ")
         .expect("bad line start")
         .trim_end()
         .split_once(": closest beacon is at ")
@@ -110,29 +41,167 @@ fn main() {
     let input_file = reversed_args.pop().expect("input file");
     let content = fs::read_to_string(input_file).unwrap();
 
-    let input_data: Vec<(Vector2D, Vector2D)> = content
-        .trim_end()
-        .split('\n')
-        .map(parse_line)
-        .collect();
+    let input_data: Vec<(Vector2D, Vector2D)> =
+        content.trim_end().split('\n').map(parse_line).collect();
 
     match part {
         "1" => {
-            let result = solve_part1(&input_data);
+            #[allow(unused_variables)]
+            let example_y: i64 = 10;
+
+            #[allow(unused_variables)]
+            let challenge_y: i64 = 2000000;
+
+            let result = solve_part1(&input_data, challenge_y);
             println!("{result}");
         }
         "2" => {
-            let result = solve_part2(&input_data);
+            #[allow(unused_variables)]
+            let example_cutoff: i64 = 20;
+
+            #[allow(unused_variables)]
+            let challenge_cutoff: i64 = 4000000;
+
+            let result = solve_part2(&input_data, challenge_cutoff);
             println!("{result}");
         }
         _ => unreachable!("{}", part),
     }
 }
 
-fn solve_part1(data: &[(Vector2D, Vector2D)]) -> usize {
-    todo!()
+fn cone_at_y(origin: Vector2D, y: i64, radius: i64) -> Option<(i64, i64)> {
+    assert!(radius >= 0);
+    let distance = (origin.y - y).abs();
+    let leftover_distance = radius - distance;
+    if leftover_distance < 0 {
+        None
+    } else {
+        Some((origin.x - leftover_distance, origin.x + leftover_distance))
+    }
 }
 
-fn solve_part2(data: &[(Vector2D, Vector2D)]) -> usize {
-    todo!()
+fn solve_part1(data: &[(Vector2D, Vector2D)], target_y: i64) -> i64 {
+    let mut endpoints = Vec::new();
+    for (sensor, beacon) in data {
+        let radius = (*sensor - *beacon).manhattan_length();
+        if let Some((start_x, end_x)) = cone_at_y(*sensor, target_y, radius) {
+            endpoints.push((start_x, Some(false)));
+            endpoints.push((end_x, Some(true)));
+        }
+
+        // This beacon is relevant, add it to the sweep.
+        // None sorts before any Some(x).
+        if beacon.y == target_y {
+            endpoints.push((beacon.x, None));
+        }
+    }
+
+    let mut coverage_depth = 0;
+    let mut denied_locations = 0;
+    let mut coverage_began = None;
+
+    endpoints.sort_unstable();
+
+    // Sweep across the relevant coordinates.
+    for (x_coord, is_end) in endpoints {
+        if is_end.is_none() {
+            // Found a beacon on this target y coordinate that's otherwise covered.
+            if coverage_depth > 0 {
+                denied_locations -= 1;
+            }
+        } else if let Some(is_end) = is_end {
+            if coverage_depth == 0 {
+                assert!(!is_end);
+                coverage_began = Some(x_coord);
+            }
+
+            if !is_end {
+                coverage_depth += 1;
+            } else {
+                coverage_depth -= 1;
+            }
+
+            if coverage_depth == 0 {
+                let began = coverage_began.unwrap();
+                denied_locations += x_coord + 1 - began;
+            }
+        }
+    }
+
+    assert!(denied_locations >= 0);
+    denied_locations
+}
+
+fn allowed_location(
+    data: &[(Vector2D, Vector2D)],
+    beacons: &BTreeSet<Vector2D>,
+    target_y: i64,
+    cutoff_coord: i64,
+) -> Option<Vector2D> {
+    let mut endpoints = Vec::new();
+    for (sensor, beacon) in data {
+        let radius = (*sensor - *beacon).manhattan_length();
+        if let Some((start_x, end_x)) = cone_at_y(*sensor, target_y, radius) {
+            endpoints.push((start_x, false));
+            endpoints.push((end_x, true));
+        }
+    }
+
+    let mut coverage_depth = 0;
+    let mut coverage_ended = Some(-1);
+
+    endpoints.sort_unstable();
+
+    // Sweep across the relevant coordinates.
+    for (x_coord, is_end) in endpoints.iter().copied() {
+        if x_coord > cutoff_coord && coverage_depth > 0 {
+            break;
+        }
+
+        if let Some(ended_x) = coverage_ended {
+            assert!(!is_end);
+
+            for candidate_x in std::cmp::max(0, ended_x + 1)..x_coord {
+                let candidate = Vector2D::new(candidate_x, target_y);
+                if !beacons.contains(&candidate) {
+                    return Some(candidate);
+                }
+            }
+        }
+
+        if !is_end {
+            coverage_depth += 1;
+        } else {
+            coverage_depth -= 1;
+        }
+
+        if coverage_depth == 0 {
+            coverage_ended = Some(x_coord);
+        } else {
+            coverage_ended = None;
+        }
+    }
+
+    if let Some(ended_x) = coverage_ended {
+        for candidate_x in std::cmp::max(0, ended_x + 1)..=cutoff_coord {
+            let candidate = Vector2D::new(candidate_x, target_y);
+            if !beacons.contains(&candidate) {
+                return Some(candidate);
+            }
+        }
+    }
+
+    None
+}
+
+fn solve_part2(data: &[(Vector2D, Vector2D)], cutoff_coord: i64) -> i64 {
+    let beacons = data.iter().map(|(_, beacon)| *beacon).collect();
+
+    for target_y in 0..=cutoff_coord {
+        if let Some(allowed) = allowed_location(data, &beacons, target_y, cutoff_coord) {
+            return allowed.x * 4000000 + allowed.y;
+        }
+    }
+
+    unreachable!("no solution found")
 }
