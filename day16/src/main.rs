@@ -3,6 +3,8 @@ use std::{
     env, fs,
 };
 
+use rayon::prelude::*;
+
 #[allow(unused_imports)]
 use itertools::Itertools;
 
@@ -187,18 +189,19 @@ fn solve_part2(data: &[Valve]) -> i64 {
     fill_dp_matrix(&mut dp, data, &non_zero_valve_names, max_time);
 
     let mut best_scores = vec![0; 1 << non_zero_valve_names.len()];
-    #[allow(clippy::needless_range_loop)]
-    for valve_pattern in 0..(1 << non_zero_valve_names.len()) {
-        #[allow(clippy::needless_range_loop)]
-        for time in 0..=max_time {
-            for valve_location in 0..non_zero_valve_names.len() {
-                best_scores[valve_pattern] = std::cmp::max(
-                    best_scores[valve_pattern],
-                    dp[time][valve_location][valve_pattern],
-                );
+
+    best_scores
+        .par_iter_mut()
+        .enumerate()
+        .for_each(|(valve_pattern, best_score)| {
+            #[allow(clippy::needless_range_loop)]
+            for time in 0..=max_time {
+                for valve_location in 0..non_zero_valve_names.len() {
+                    *best_score =
+                        std::cmp::max(*best_score, dp[time][valve_location][valve_pattern]);
+                }
             }
-        }
-    }
+        });
 
     let nonzero_best_scores = best_scores
         .iter()
