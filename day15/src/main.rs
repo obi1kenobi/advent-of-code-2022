@@ -1,4 +1,6 @@
-use std::{collections::BTreeSet, env, fs};
+use std::{collections::BTreeSet, env, fs, sync::Mutex};
+
+use rayon::prelude::*;
 
 #[allow(unused_imports)]
 use itertools::Itertools;
@@ -197,11 +199,19 @@ fn allowed_location(
 fn solve_part2(data: &[(Vector2D, Vector2D)], cutoff_coord: i64) -> i64 {
     let beacons = data.iter().map(|(_, beacon)| *beacon).collect();
 
-    for target_y in 0..=cutoff_coord {
-        if let Some(allowed) = allowed_location(data, &beacons, target_y, cutoff_coord) {
-            return allowed.x * 4000000 + allowed.y;
-        }
-    }
+    let mut answer: Mutex<Option<Vector2D>> = None.into();
 
-    unreachable!("no solution found")
+    (0..=cutoff_coord).into_par_iter().for_each(|target_y| {
+        if let Some(allowed) = allowed_location(data, &beacons, target_y, cutoff_coord) {
+            let mut guard = answer.lock().unwrap();
+            assert_eq!(*guard, None);
+            *guard = Some(allowed);
+        }
+    });
+
+    let allowed = answer
+        .get_mut()
+        .expect("failed to get mutex")
+        .expect("no solution found");
+    allowed.x * 4000000 + allowed.y
 }
