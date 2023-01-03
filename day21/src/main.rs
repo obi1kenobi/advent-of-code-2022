@@ -216,139 +216,7 @@ fn evaluate_backward<'a>(
                     }
                     result
                 }
-                (None, None) => match op {
-                    Operation::Literal(_) => unreachable!(),
-                    Operation::Add(_, _) => {
-                        let mut result = Err(());
-                        for left_value in 0..=expected_result {
-                            let right_value = expected_result - left_value;
-                            values.insert(l, left_value);
-                            values.insert(r, right_value);
-                            if let Ok(()) = evaluate_backward(l, left_value, values, operations) {
-                                if let Ok(()) =
-                                    evaluate_backward(r, right_value, values, operations)
-                                {
-                                    result = Ok(());
-                                    break;
-                                }
-                            }
-                        }
-                        if result.is_err() {
-                            values.remove(l);
-                            values.remove(r);
-                        }
-                        result
-                    }
-                    Operation::Sub(_, _) => {
-                        let mut result = Err(());
-                        for left_value in expected_result..=(2 * expected_result) {
-                            let right_value = left_value - expected_result;
-                            values.insert(l, left_value);
-                            values.insert(r, right_value);
-                            if let Ok(()) = evaluate_backward(l, left_value, values, operations) {
-                                if let Ok(()) =
-                                    evaluate_backward(r, right_value, values, operations)
-                                {
-                                    result = Ok(());
-                                    break;
-                                }
-                            }
-                        }
-                        if result.is_err() {
-                            values.remove(l);
-                            values.remove(r);
-                        }
-                        result
-                    }
-                    Operation::Mul(_, _) => {
-                        let mut result = Err(());
-                        for left_value in 1..=expected_result {
-                            let right_value = expected_result / left_value;
-                            if left_value * right_value != expected_result {
-                                continue;
-                            }
-
-                            values.insert(l, left_value);
-                            values.insert(r, right_value);
-
-                            if let Ok(()) = evaluate_backward(l, left_value, values, operations) {
-                                if let Ok(()) =
-                                    evaluate_backward(r, right_value, values, operations)
-                                {
-                                    result = Ok(());
-                                    break;
-                                }
-                            }
-                        }
-                        if result.is_err() {
-                            values.remove(l);
-                            values.remove(r);
-                        }
-                        result
-                    }
-                    Operation::Div(_, _) => {
-                        let mut result = Err(());
-                        if expected_result == 0 {
-                            if let Ok(()) = evaluate_backward(l, 0, values, operations) {
-                                for right_value in 1..=expected_result {
-                                    values.insert(l, 0);
-                                    values.insert(r, right_value);
-
-                                    if let Ok(()) =
-                                        evaluate_backward(r, right_value, values, operations)
-                                    {
-                                        result = Ok(());
-                                        break;
-                                    }
-                                }
-                            } else {
-                                'outer: for right_value in 2..=100 {
-                                    for left_value in 1..right_value {
-                                        values.insert(l, left_value);
-                                        values.insert(r, right_value);
-
-                                        if let Ok(()) =
-                                            evaluate_backward(l, left_value, values, operations)
-                                        {
-                                            if let Ok(()) = evaluate_backward(
-                                                r,
-                                                right_value,
-                                                values,
-                                                operations,
-                                            ) {
-                                                result = Ok(());
-                                                break 'outer;
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        } else {
-                            for right_value in 1..=expected_result {
-                                let left_value = expected_result * right_value;
-
-                                values.insert(l, left_value);
-                                values.insert(r, right_value);
-
-                                if let Ok(()) = evaluate_backward(l, left_value, values, operations)
-                                {
-                                    if let Ok(()) =
-                                        evaluate_backward(r, right_value, values, operations)
-                                    {
-                                        result = Ok(());
-                                        break;
-                                    }
-                                }
-                            }
-                        }
-                        if result.is_err() {
-                            values.remove(l);
-                            values.remove(r);
-                        }
-                        result
-                    }
-                },
-                _ => unreachable!("{maybe_left:?} {maybe_right:?}"),
+                _ => Ok(()),
             }
         }
     }
@@ -379,13 +247,27 @@ fn solve_part2(operations: &BTreeMap<&str, Operation<'_>>) -> i64 {
 
     match (left_result, right_result) {
         (Some(left), None) => {
-            evaluate_backward(right, left, &mut values, operations).expect("right failed")
+            evaluate_backward(right, left, &mut values, operations).expect("right failed");
         }
         (None, Some(right)) => {
-            evaluate_backward(left, right, &mut values, operations).expect("left failed")
+            evaluate_backward(left, right, &mut values, operations).expect("left failed");
         }
         _ => unreachable!("{left_result:?} {right_result:?}"),
-    };
+    }
+
+    while !values.contains_key("humn") {
+        for name in operations.keys().copied() {
+            if name != "root" && name != "humn" {
+                evaluate_except_special(name, &mut values, operations);
+            }
+        }
+
+        for name in operations.keys().copied() {
+            let Some(op_value) = values.get(name).copied() else { continue };
+            evaluate_backward(name, op_value, &mut values, operations)
+                .expect("backward computation failed");
+        }
+    }
 
     values["humn"]
 }
